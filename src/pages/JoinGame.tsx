@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { useSupabase } from '../lib/supabase-provider';
 
 const JoinGame = () => {
-  const [gamePin, setGamePin] = useState('');
-  const [nickname, setNickname] = useState('');
+  const [searchParams] = useSearchParams();
+  const [gamePin, setGamePin] = useState(searchParams.get('pin') || '');
+  const [nickname, setNickname] = useState(searchParams.get('nickname') || '');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -28,14 +29,17 @@ const JoinGame = () => {
     setIsSubmitting(true);
     
     try {
+      console.log('Checking game PIN:', gamePin.trim());
+      
       // Check if game session exists and is active
       const { data: session, error: sessionError } = await supabase
-      .from('game_sessions')
-      .select('*')
-      .eq('pin', String(gamePin))
-      .maybeSingle();
+        .from('game_sessions')
+        .select('*')
+        .eq('pin', gamePin.trim())
+        .maybeSingle();
 
       if (sessionError) {
+        console.error('Session check error:', sessionError);
         throw new Error('Unable to verify game PIN. Please try again.');
       }
 
@@ -43,15 +47,18 @@ const JoinGame = () => {
         throw new Error('Game PIN not found or the game has ended. Please check the PIN and try again.');
       }
 
+      console.log('Found session:', session);
+
       // Check if nickname is already taken in this session
       const { data: existingPlayer, error: playerError } = await supabase
         .from('players')
         .select('*')
         .eq('session_id', session.id)
-        .eq('nickname', nickname)
+        .eq('nickname', nickname.trim())
         .maybeSingle();
 
       if (playerError) {
+        console.error('Player check error:', playerError);
         throw new Error('Unable to verify nickname availability. Please try again.');
       }
 
@@ -60,12 +67,23 @@ const JoinGame = () => {
       }
 
       // If all checks pass, navigate to the game
-      navigate(`/play/${gamePin}?nickname=${encodeURIComponent(nickname)}`);
+      navigate(`/play/${gamePin.trim()}?nickname=${encodeURIComponent(nickname.trim())}`);
     } catch (err: any) {
+      console.error('Join game error:', err);
       setError(err.message);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6); // Only allow digits, max 6 characters
+    setGamePin(value);
+  };
+
+  const handleNicknameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.slice(0, 15); // Max 15 characters
+    setNickname(value);
   };
 
   return (
@@ -100,7 +118,7 @@ const JoinGame = () => {
                 autoComplete="off"
                 required
                 value={gamePin}
-                onChange={(e) => setGamePin(e.target.value)}
+                onChange={handlePinChange}
                 maxLength={6}
                 placeholder="Enter 6-digit PIN"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-4 py-3 text-center text-xl font-semibold tracking-widest shadow-sm focus:border-brand-blue focus:outline-none focus:ring-brand-blue"
@@ -118,7 +136,7 @@ const JoinGame = () => {
                 autoComplete="off"
                 required
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={handleNicknameChange}
                 maxLength={15}
                 placeholder="Choose a nickname"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-3 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-brand-blue"
@@ -129,7 +147,7 @@ const JoinGame = () => {
           <div>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !gamePin.trim() || !nickname.trim()}
               className="flex w-full justify-center rounded-md bg-brand-blue px-4 py-3 text-base font-medium text-white shadow-sm transition-colors hover:bg-brand-blue/90 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? 'Joining...' : 'Join Game'}
