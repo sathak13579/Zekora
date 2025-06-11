@@ -47,6 +47,7 @@ const HostGame = () => {
   // Refs for cleanup
   const playerSubscriptionRef = useRef<RealtimeChannel | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const gameChannelRef = useRef<RealtimeChannel | null>(null);
   
   // State
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -56,10 +57,13 @@ const HostGame = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [timerActive, setTimerActive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedPin, setCopiedPin] = useState(false);
+  const [answers, setAnswers] = useState<unknown[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [resultsCountdown, setResultsCountdown] = useState<number>(0);
+  const resultsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const fetchSessionData = async () => {
@@ -149,13 +153,10 @@ const HostGame = () => {
         // Fetch initial players
         await fetchPlayers(sessionData.id);
 
-        // Set up realtime subscription
-        setupPlayerSubscription(sessionData.id);
-
         setLoading(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error loading quiz:', err);
-        setError(err.message || 'Failed to load quiz');
+        setError(err instanceof Error ? err.message : 'Failed to load quiz');
         setLoading(false);
       }
     };
@@ -166,6 +167,7 @@ const HostGame = () => {
     return () => {
       if (playerSubscriptionRef.current) {
         supabase.removeChannel(playerSubscriptionRef.current);
+        playerSubscriptionRef.current = null;
       }
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
@@ -188,22 +190,40 @@ const HostGame = () => {
     }
   };
 
-  const setupPlayerSubscription = (sessionId: string) => {
-    // Clean up existing subscription
+  // Move player subscription setup to its own effect
+  useEffect(() => {
+    if (!session) return;
+
+    // Clean up previous subscription
     if (playerSubscriptionRef.current) {
       supabase.removeChannel(playerSubscriptionRef.current);
+      playerSubscriptionRef.current = null;
+    }
+    if (gameChannelRef.current) {
+      supabase.removeChannel(gameChannelRef.current);
+      gameChannelRef.current = null;
     }
 
-    // Set up new subscription
-    playerSubscriptionRef.current = supabase
-      .channel(`players_${sessionId}`)
+    // Set up new channel for both broadcast and DB changes
+    const gameChannel = supabase
+      .channel(`game:${session.id}`)
+      .on('broadcast', { event: 'player_joined' }, (payload) => {
+        const newPlayer = payload.payload.player;
+        setPlayers((current) => {
+          if (current.some((p) => p.id === newPlayer.id)) return current;
+          return [...current, newPlayer];
+        });
+      })
+      .on('broadcast', { event: 'game_started' }, () => {/* no-op for host */})
+      .on('broadcast', { event: 'next_question' }, () => {/* no-op for host */})
+      .on('broadcast', { event: 'timer_update' }, () => {/* no-op for host */})
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'players',
-          filter: `session_id=eq.${sessionId}`,
+          filter: `session_id=eq.${session.id}`,
         },
         (payload) => {
           console.log('Player update received:', payload);
@@ -223,7 +243,20 @@ const HostGame = () => {
         }
       )
       .subscribe();
-  };
+    gameChannelRef.current = gameChannel;
+
+    // Clean up on unmount or when session changes
+    return () => {
+      if (playerSubscriptionRef.current) {
+        supabase.removeChannel(playerSubscriptionRef.current);
+        playerSubscriptionRef.current = null;
+      }
+      if (gameChannelRef.current) {
+        supabase.removeChannel(gameChannelRef.current);
+        gameChannelRef.current = null;
+      }
+    };
+  }, [session, supabase]);
 
   const copyPinToClipboard = () => {
     if (session) {
@@ -248,17 +281,64 @@ const HostGame = () => {
       if (quiz?.has_timer) {
         startTimer();
       }
-    } catch (err: any) {
+      // Broadcast game started with first question and timer
+      if (gameChannelRef.current) {
+        await gameChannelRef.current.send({
+          type: 'broadcast',
+          event: 'game_started',
+          payload: {
+            question: questions[0],
+            timeLeft: quiz?.question_timer_seconds || 20,
+          }
+        });
+      }
+    } catch (err: unknown) {
       console.error('Error starting game:', err);
-      setError(err.message || 'Failed to start game');
+      setError(err instanceof Error ? err.message : 'Failed to start game');
     }
   };
 
-  const startTimer = () => {
+  const showLeaderboardWithRefresh = async (afterLeaderboard?: () => void) => {
+    if (!session) return;
+    // Fetch latest players with updated scores
+    const { data: freshPlayers, error } = await supabase
+      .from('players')
+      .select('*')
+      .eq('session_id', session.id)
+      .order('total_score', { ascending: false });
+    if (!error && freshPlayers) {
+      setPlayers(freshPlayers);
+      // Broadcast the up-to-date leaderboard
+      if (gameChannelRef.current) {
+        await gameChannelRef.current.send({
+          type: 'broadcast',
+          event: 'reveal_answer',
+          payload: {
+            leaderboard: freshPlayers
+          }
+        });
+      }
+    }
+    setShowResults(true);
+    setResultsCountdown(5);
+    if (resultsTimerRef.current) clearInterval(resultsTimerRef.current);
+    resultsTimerRef.current = setInterval(() => {
+      setResultsCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(resultsTimerRef.current!);
+          setShowResults(false);
+          if (afterLeaderboard) setTimeout(afterLeaderboard, 0);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  };
+
+  const startTimer = async () => {
     if (!quiz?.has_timer) return;
     
     setTimeLeft(quiz.question_timer_seconds || 20);
-    setTimerActive(true);
 
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -267,13 +347,28 @@ const HostGame = () => {
     timerIntervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev === null || prev <= 1) {
-          setTimerActive(false);
           if (timerIntervalRef.current) {
             clearInterval(timerIntervalRef.current);
           }
-          // Auto-advance to next question when timer reaches 0
-          setTimeout(() => handleNextQuestion(), 100);
+          // Broadcast timer update (0)
+          if (gameChannelRef.current) {
+            gameChannelRef.current.send({
+              type: 'broadcast',
+              event: 'timer_update',
+              payload: { timeLeft: 0 }
+            });
+          }
+          // Show leaderboard/results for 5 seconds (broadcast now handled in showLeaderboardWithRefresh)
+          showLeaderboardWithRefresh(() => handleNextQuestion());
           return 0;
+        }
+        // Broadcast timer update
+        if (gameChannelRef.current) {
+          gameChannelRef.current.send({
+            type: 'broadcast',
+            event: 'timer_update',
+            payload: { timeLeft: prev - 1 }
+          });
         }
         return prev - 1;
       });
@@ -283,35 +378,70 @@ const HostGame = () => {
   const handleNextQuestion = async () => {
     if (!session || !quiz) return;
 
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-      if (quiz.has_timer) {
-        startTimer();
+    // Always show leaderboard/results first (broadcast now handled in showLeaderboardWithRefresh)
+    await showLeaderboardWithRefresh(async () => {
+      if (currentQuestionIndex < questions.length - 1) {
+        const newIndex = currentQuestionIndex + 1;
+        setCurrentQuestionIndex(newIndex);
+        if (quiz.has_timer) {
+          startTimer();
+        }
+        // Broadcast next question and timer
+        if (gameChannelRef.current) {
+          await gameChannelRef.current.send({
+            type: 'broadcast',
+            event: 'next_question',
+            payload: {
+              question: questions[newIndex],
+              timeLeft: quiz?.question_timer_seconds || 20,
+            }
+          });
+        }
+      } else {
+        // End the game
+        try {
+          const { error: sessionError } = await supabase
+            .from('game_sessions')
+            .update({ status: 'completed' })
+            .eq('id', session.id);
+          if (sessionError) throw sessionError;
+          const { error: quizError } = await supabase
+            .from('quizzes')
+            .update({ status: 'completed' })
+            .eq('id', quiz.id);
+          if (quizError) throw quizError;
+          if (gameChannelRef.current) {
+            await gameChannelRef.current.send({
+              type: 'broadcast',
+              event: 'game_ended',
+              payload: {
+                leaderboard: players
+              }
+            });
+          }
+          navigate(`/analytics/${quiz.id}`);
+        } catch (err: unknown) {
+          console.error('Error ending game:', err);
+          setError(err instanceof Error ? err.message : 'Failed to end game');
+        }
       }
-    } else {
-      // End the game
-      try {
-        const { error: sessionError } = await supabase
-          .from('game_sessions')
-          .update({ status: 'completed' })
-          .eq('id', session.id);
-
-        if (sessionError) throw sessionError;
-
-        const { error: quizError } = await supabase
-          .from('quizzes')
-          .update({ status: 'completed' })
-          .eq('id', quiz.id);
-
-        if (quizError) throw quizError;
-
-        navigate(`/analytics/${quiz.id}`);
-      } catch (err: any) {
-        console.error('Error ending game:', err);
-        setError(err.message || 'Failed to end game');
-      }
-    }
+    });
   };
+
+  // Fetch answers for the current question
+  useEffect(() => {
+    if (!session || !questions.length) return;
+    const fetchAnswers = async () => {
+      const currentQuestion = questions[currentQuestionIndex];
+      if (!currentQuestion) return;
+      const { data, error } = await supabase
+        .from('player_answers')
+        .select('player_id')
+        .eq('question_id', currentQuestion.id);
+      if (!error) setAnswers(data || []);
+    };
+    fetchAnswers();
+  }, [session, currentQuestionIndex, questions, supabase]);
 
   if (userLoading || loading) {
     return (
@@ -432,7 +562,7 @@ const HostGame = () => {
       )}
 
       {/* Playing - Question View */}
-      {gameStarted && currentQuestion && (
+      {gameStarted && !showResults && currentQuestion && (
         <div className="mx-auto max-w-3xl">
           <div className="mb-4 flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">{quiz.title}</h1>
@@ -442,6 +572,9 @@ const HostGame = () => {
               </div>
               <div className="text-sm text-gray-600">
                 Players: {players.length}
+              </div>
+              <div className="text-sm text-gray-600">
+                Answers: {answers.length} / {players.length}
               </div>
             </div>
           </div>
@@ -504,6 +637,37 @@ const HostGame = () => {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leaderboard/Results View */}
+      {gameStarted && showResults && (
+        <div className="mx-auto max-w-3xl">
+          <div className="bg-white rounded-lg shadow-md p-6 text-center">
+            <h2 className="text-2xl font-semibold mb-4">Leaderboard</h2>
+            <div className="mb-2 text-lg text-gray-700">Next question in {resultsCountdown}s</div>
+            {players.length > 0 ? (
+              <div className="space-y-2">
+                {players.slice(0, 5).map((player, index) => (
+                  <div
+                    key={index}
+                    className={`flex justify-between items-center p-3 rounded ${
+                      // Optionally highlight the top player or the host
+                      index === 0 ? 'bg-brand-blue text-white' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className="font-bold">#{index + 1}</span>
+                      <span>{player.nickname}</span>
+                    </div>
+                    <span className="font-bold">{player.total_score} pts</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600">No leaderboard data yet.</p>
+            )}
           </div>
         </div>
       )}
