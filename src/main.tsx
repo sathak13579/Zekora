@@ -7,12 +7,10 @@ import './index.css';
 import { SupabaseProvider } from './lib/supabase-provider.tsx';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
     <BrowserRouter>
       <SupabaseProvider>
         <App />
         <Toaster position="top-right" />
       </SupabaseProvider>
     </BrowserRouter>
-  </StrictMode>
 );

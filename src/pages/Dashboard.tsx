@@ -90,13 +90,19 @@ const Dashboard = () => {
 
       // Clone questions for new quiz
       if (questions && questions.length > 0) {
-        const newQuestions = questions.map(q => ({
+        // Defensive: Remove any questions for the new quiz before inserting
+        await supabase
+          .from('questions')
+          .delete()
+          .eq('quiz_id', newQuiz.id);
+
+        const newQuestions = questions.map((q, idx) => ({
           quiz_id: newQuiz.id,
           question_text: q.question_text,
           options: q.options,
           correct_answer: q.correct_answer,
           explanation: q.explanation,
-          order: q.order
+          order: idx // ensure order is sequential for the new quiz
         }));
 
         const { error: insertError } = await supabase
