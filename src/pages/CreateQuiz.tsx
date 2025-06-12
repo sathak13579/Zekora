@@ -96,6 +96,17 @@ const CreateQuiz = () => {
     };
     
     loadQuizData();
+
+    // Cleanup: reset quizData when leaving edit mode or switching quizzes
+    return () => {
+      setQuizData({
+        title: '',
+        description: '',
+        questions: [],
+        has_timer: false,
+        question_timer_seconds: 20
+      });
+    };
   }, [supabase, user, editQuizId, isEditMode]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -262,6 +273,16 @@ const CreateQuiz = () => {
     
     setIsSaving(true);
     
+    // Remove duplicate questions by question_text and options
+    const uniqueQuestions = quizData.questions.filter(
+      (q, idx, arr) =>
+        arr.findIndex(
+          x =>
+            x.question_text === q.question_text &&
+            JSON.stringify(x.options) === JSON.stringify(q.options)
+        ) === idx
+    );
+    
     try {
       if (isEditMode && quizData.id) {
         const { error: quizError } = await supabase
@@ -277,28 +298,43 @@ const CreateQuiz = () => {
           
         if (quizError) throw quizError;
         
-        const { error: deleteError } = await supabase
+        // Fetch existing questions to compare
+        const { data: existingQuestions, error: fetchError } = await supabase
           .from('questions')
-          .delete()
+          .select('*')
           .eq('quiz_id', quizData.id);
           
-        if (deleteError) throw deleteError;
+        if (fetchError) throw fetchError;
         
-        const { error: insertError } = await supabase
-          .from('questions')
-          .insert(
-            quizData.questions.map(q => ({
-              quiz_id: quizData.id,
-              question_text: q.question_text,
-              options: q.options,
-              correct_answer: q.correct_answer,
-              explanation: q.explanation,
-              order: q.order
-            }))
-          );
-          
-        if (insertError) throw insertError;
-
+        // Update existing questions and insert new ones
+        const updates = uniqueQuestions.map(q => {
+          const existing = existingQuestions.find(eq => eq.id === q.id);
+          if (existing) {
+            return supabase
+              .from('questions')
+              .update({
+                question_text: q.question_text,
+                options: q.options,
+                correct_answer: q.correct_answer,
+                explanation: q.explanation,
+                order: q.order
+              })
+              .eq('id', q.id);
+          } else {
+            return supabase
+              .from('questions')
+              .insert({
+                quiz_id: quizData.id,
+                question_text: q.question_text,
+                options: q.options,
+                correct_answer: q.correct_answer,
+                explanation: q.explanation,
+                order: q.order
+              });
+          }
+        });
+        
+        await Promise.all(updates);
         toast.success('Quiz updated successfully!');
       } else {
         const { data: newQuiz, error: quizError } = await supabase
@@ -320,7 +356,7 @@ const CreateQuiz = () => {
         const { error: questionsError } = await supabase
           .from('questions')
           .insert(
-            quizData.questions.map(q => ({
+            uniqueQuestions.map(q => ({
               quiz_id: newQuiz.id,
               question_text: q.question_text,
               options: q.options,

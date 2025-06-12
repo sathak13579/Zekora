@@ -39,6 +39,15 @@ type GameSession = {
   created_at: string;
 };
 
+type PlayerAnswer = {
+  player_id: string;
+  question_id: string;
+  selected_answer: string;
+  is_correct: boolean;
+  response_time_ms: number;
+  score: number;
+};
+
 const HostGame = () => {
   const { quizId } = useParams<{ quizId: string }>();
   const { supabase, user, loading: userLoading } = useSupabase();
@@ -60,7 +69,7 @@ const HostGame = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedPin, setCopiedPin] = useState(false);
-  const [answers, setAnswers] = useState<unknown[]>([]);
+  const [answers, setAnswers] = useState<PlayerAnswer[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [resultsCountdown, setResultsCountdown] = useState<number>(0);
   const resultsTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -260,9 +269,25 @@ const HostGame = () => {
 
   const copyPinToClipboard = () => {
     if (session) {
-      navigator.clipboard.writeText(session.pin);
-      setCopiedPin(true);
-      setTimeout(() => setCopiedPin(false), 2000);
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(session.pin);
+        setCopiedPin(true);
+        setTimeout(() => setCopiedPin(false), 2000);
+      } else {
+        // Fallback for browsers/environments without Clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = session.pin;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          setCopiedPin(true);
+          setTimeout(() => setCopiedPin(false), 2000);
+        } catch {
+          alert('Failed to copy PIN. Please copy it manually.');
+        }
+        document.body.removeChild(textArea);
+      }
     }
   };
 
@@ -428,19 +453,61 @@ const HostGame = () => {
     });
   };
 
-  // Fetch answers for the current question
+  // Fetch answers for the current question (real-time)
   useEffect(() => {
     if (!session || !questions.length) return;
+    const currentQuestion = questions[currentQuestionIndex];
+    if (!currentQuestion) return;
+
+    // Function to fetch answers
     const fetchAnswers = async () => {
-      const currentQuestion = questions[currentQuestionIndex];
-      if (!currentQuestion) return;
       const { data, error } = await supabase
         .from('player_answers')
-        .select('player_id')
+        .select('*')
         .eq('question_id', currentQuestion.id);
       if (!error) setAnswers(data || []);
     };
+
+    // Subscribe to real-time changes for player_answers for this question
+    const answerChannel = supabase
+      .channel(`answers:${currentQuestion.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'player_answers',
+          filter: `question_id=eq.${currentQuestion.id}`,
+        },
+        (payload) => {
+          console.log('Answer update received:', payload);
+          if (payload.eventType === 'INSERT') {
+            setAnswers(current => {
+              const newAnswers = [...current, payload.new as PlayerAnswer];
+              console.log('Updated answers:', newAnswers);
+              return newAnswers;
+            });
+          } else if (payload.eventType === 'DELETE') {
+            setAnswers(current => {
+              const filteredAnswers = current.filter(a => a.player_id !== payload.old.player_id);
+              console.log('Updated answers after delete:', filteredAnswers);
+              return filteredAnswers;
+            });
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Answer channel subscription status:', status);
+      });
+
+    // Fetch initial answers
     fetchAnswers();
+
+    // Cleanup
+    return () => {
+      console.log('Cleaning up answer channel subscription');
+      supabase.removeChannel(answerChannel);
+    };
   }, [session, currentQuestionIndex, questions, supabase]);
 
   if (userLoading || loading) {
@@ -653,7 +720,6 @@ const HostGame = () => {
                   <div
                     key={index}
                     className={`flex justify-between items-center p-3 rounded ${
-                      // Optionally highlight the top player or the host
                       index === 0 ? 'bg-brand-blue text-white' : 'bg-gray-50'
                     }`}
                   >
@@ -667,6 +733,19 @@ const HostGame = () => {
               </div>
             ) : (
               <p className="text-gray-600">No leaderboard data yet.</p>
+            )}
+            {/* Display correct answer and explanation */}
+            {currentQuestion && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                <h3 className="font-medium text-blue-800 mb-2">Correct Answer</h3>
+                <p className="text-blue-700">{currentQuestion.correct_answer}</p>
+                {currentQuestion.explanation && (
+                  <>
+                    <h3 className="font-medium text-blue-800 mt-2 mb-2">Explanation</h3>
+                    <p className="text-blue-700">{currentQuestion.explanation}</p>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>

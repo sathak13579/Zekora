@@ -48,6 +48,7 @@ const PlayGame = () => {
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
   const [resultsCountdown, setResultsCountdown] = useState<number>(0);
   const resultsTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   useEffect(() => {
     const fetchGameSession = async () => {
@@ -193,6 +194,7 @@ const PlayGame = () => {
         setCurrentQuestion(payload.payload.question);
         setGameStatus('playing');
         setShowResults(false);
+        setShowLeaderboard(false);
         setSelectedAnswer(null);
         setIsAnswerSubmitted(false);
         setTimeRemaining(payload.payload.timeLeft);
@@ -201,6 +203,7 @@ const PlayGame = () => {
       .on('broadcast', { event: 'next_question' }, (payload) => {
         setCurrentQuestion(payload.payload.question);
         setShowResults(false);
+        setShowLeaderboard(false);
         setSelectedAnswer(null);
         setIsAnswerSubmitted(false);
         setTimeRemaining(payload.payload.timeLeft);
@@ -217,17 +220,21 @@ const PlayGame = () => {
       })
       .on('broadcast', { event: 'reveal_answer' }, (payload) => {
         setShowResults(true);
-        setResultsCountdown(5);
-        if (resultsTimerRef.current) clearInterval(resultsTimerRef.current);
-        resultsTimerRef.current = setInterval(() => {
-          setResultsCountdown((c) => {
-            if (c <= 1) {
-              clearInterval(resultsTimerRef.current!);
-              return 0;
-            }
-            return c - 1;
-          });
-        }, 1000);
+        setShowLeaderboard(false);
+        setTimeout(() => {
+          setShowLeaderboard(true);
+          setResultsCountdown(5);
+          if (resultsTimerRef.current) clearInterval(resultsTimerRef.current);
+          resultsTimerRef.current = setInterval(() => {
+            setResultsCountdown((c) => {
+              if (c <= 1) {
+                clearInterval(resultsTimerRef.current!);
+                return 0;
+              }
+              return c - 1;
+            });
+          }, 1000);
+        }, 3000);
         if (payload.payload.leaderboard) {
           setLeaderboard(payload.payload.leaderboard);
         }
@@ -431,7 +438,7 @@ const PlayGame = () => {
         )}
 
         {/* Show leaderboard/results between questions */}
-        {gameStatus === 'playing' && showResults && (
+        {gameStatus === 'playing' && showResults && showLeaderboard && (
           <div className="bg-white rounded-lg shadow-md p-6 text-center">
             <h2 className="text-2xl font-semibold mb-4">Leaderboard</h2>
             <div className="mb-2 text-lg text-gray-700">Next question in {resultsCountdown}s</div>
@@ -459,7 +466,7 @@ const PlayGame = () => {
         )}
 
         {/* Playing - Question View */}
-        {gameStatus === 'playing' && !showResults && currentQuestion && (
+        {gameStatus === 'playing' && (!showResults || (showResults && !showLeaderboard)) && currentQuestion && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Question</h2>
