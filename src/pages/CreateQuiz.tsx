@@ -301,15 +301,28 @@ const CreateQuiz = () => {
         // Fetch existing questions to compare
         const { data: existingQuestions, error: fetchError } = await supabase
           .from('questions')
-          .select('*')
+          .select('id')
           .eq('quiz_id', quizData.id);
-          
         if (fetchError) throw fetchError;
+
+        // Get IDs of questions currently in UI
+        const currentIds = uniqueQuestions.filter(q => q.id).map(q => q.id);
+        // Find IDs to delete
+        const idsToDelete = existingQuestions
+          .filter(q => !currentIds.includes(q.id))
+          .map(q => q.id);
+        // Delete those questions
+        if (idsToDelete.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('questions')
+            .delete()
+            .in('id', idsToDelete);
+          if (deleteError) throw deleteError;
+        }
         
         // Update existing questions and insert new ones
         const updates = uniqueQuestions.map(q => {
-          const existing = existingQuestions.find(eq => eq.id === q.id);
-          if (existing) {
+          if (q.id) {
             return supabase
               .from('questions')
               .update({

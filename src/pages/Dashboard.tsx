@@ -373,7 +373,7 @@ const Dashboard = () => {
               <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span>
               <span className="mx-1">of</span>
               <span className="font-medium">{totalItems}</span>
-              <span className="hidden sm:inline"> entries</span>
+              <span className="hidden sm:inline ml-1"> entries</span>
             </div>
             
             <div className="flex space-x-2">
