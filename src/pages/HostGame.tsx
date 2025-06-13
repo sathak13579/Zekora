@@ -226,6 +226,13 @@ const HostGame = () => {
       .on('broadcast', { event: 'game_started' }, () => {/* no-op for host */})
       .on('broadcast', { event: 'next_question' }, () => {/* no-op for host */})
       .on('broadcast', { event: 'timer_update' }, () => {/* no-op for host */})
+      .on('broadcast', { event: 'player_answered' }, (payload) => {
+        setAnswers(current => {
+          // Remove any previous answer from this player for this question
+          const filtered = current.filter(a => a.player_id !== payload.payload.player_id);
+          return [...filtered, payload.payload as PlayerAnswer];
+        });
+      })
       .on(
         'postgres_changes',
         {

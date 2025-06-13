@@ -295,6 +295,22 @@ const PlayGame = () => {
         throw answerError;
       }
 
+      // (NEW) Send socket event to host
+      if (gameChannelRef.current) {
+        await gameChannelRef.current.send({
+          type: 'broadcast',
+          event: 'player_answered',
+          payload: {
+            player_id: playerIdRef.current,
+            question_id: currentQuestion.id,
+            selected_answer: selected,
+            is_correct: isCorrect,
+            response_time_ms: responseTime,
+            score: score,
+          }
+        });
+      }
+
       // Fetch current total_score
       const { data: playerData, error: fetchError } = await supabase
         .from('players')
