@@ -71,6 +71,7 @@ const HostGame = () => {
   const [copiedPin, setCopiedPin] = useState(false);
   const [answers, setAnswers] = useState<PlayerAnswer[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [resultsCountdown, setResultsCountdown] = useState<number>(0);
   const resultsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -351,20 +352,50 @@ const HostGame = () => {
         });
       }
     }
+    // First show results
     setShowResults(true);
-    setResultsCountdown(5);
-    if (resultsTimerRef.current) clearInterval(resultsTimerRef.current);
-    resultsTimerRef.current = setInterval(() => {
-      setResultsCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(resultsTimerRef.current!);
-          setShowResults(false);
-          if (afterLeaderboard) setTimeout(afterLeaderboard, 0);
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
+    setShowLeaderboard(false);
+    setResultsCountdown(0);
+    
+    // Clear any existing timers
+    if (resultsTimerRef.current) {
+      clearInterval(resultsTimerRef.current);
+      resultsTimerRef.current = null;
+    }
+    
+    // Show leaderboard after 3 seconds
+    const leaderboardTimer = setTimeout(() => {
+      setShowLeaderboard(true);
+      setResultsCountdown(5);
+      
+      // Start countdown timer
+      resultsTimerRef.current = setInterval(() => {
+        setResultsCountdown((c) => {
+          if (c <= 1) {
+            if (resultsTimerRef.current) {
+              clearInterval(resultsTimerRef.current);
+              resultsTimerRef.current = null;
+            }
+            setShowResults(false);
+            setShowLeaderboard(false);
+            if (afterLeaderboard) {
+              setTimeout(afterLeaderboard, 0);
+            }
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+    }, 3000);
+    
+    // Cleanup timer on unmount
+    return () => {
+      clearTimeout(leaderboardTimer);
+      if (resultsTimerRef.current) {
+        clearInterval(resultsTimerRef.current);
+        resultsTimerRef.current = null;
+      }
+    };
   };
 
   const startTimer = async () => {
@@ -410,9 +441,10 @@ const HostGame = () => {
   const handleNextQuestion = async () => {
     if (!session || !quiz) return;
 
-    // Always show leaderboard/results first (broadcast now handled in showLeaderboardWithRefresh)
-    await showLeaderboardWithRefresh(async () => {
-      if (currentQuestionIndex < questions.length - 1) {
+    // Check if this is the last question
+    if (currentQuestionIndex < questions.length - 1) {
+      // Not the last question - show leaderboard first
+      await showLeaderboardWithRefresh(async () => {
         const newIndex = currentQuestionIndex + 1;
         setCurrentQuestionIndex(newIndex);
         if (quiz.has_timer) {
@@ -429,35 +461,35 @@ const HostGame = () => {
             }
           });
         }
-      } else {
-        // End the game
-        try {
-          const { error: sessionError } = await supabase
-            .from('game_sessions')
-            .update({ status: 'completed' })
-            .eq('id', session.id);
-          if (sessionError) throw sessionError;
-          const { error: quizError } = await supabase
-            .from('quizzes')
-            .update({ status: 'completed' })
-            .eq('id', quiz.id);
-          if (quizError) throw quizError;
-          if (gameChannelRef.current) {
-            await gameChannelRef.current.send({
-              type: 'broadcast',
-              event: 'game_ended',
-              payload: {
-                leaderboard: players
-              }
-            });
-          }
-          navigate(`/analytics/${quiz.id}`);
-        } catch (err: unknown) {
-          console.error('Error ending game:', err);
-          setError(err instanceof Error ? err.message : 'Failed to end game');
+      });
+    } else {
+      // Last question - end the game immediately
+      try {
+        const { error: sessionError } = await supabase
+          .from('game_sessions')
+          .update({ status: 'completed' })
+          .eq('id', session.id);
+        if (sessionError) throw sessionError;
+        const { error: quizError } = await supabase
+          .from('quizzes')
+          .update({ status: 'completed' })
+          .eq('id', quiz.id);
+        if (quizError) throw quizError;
+        if (gameChannelRef.current) {
+          await gameChannelRef.current.send({
+            type: 'broadcast',
+            event: 'game_ended',
+            payload: {
+              leaderboard: players
+            }
+          });
         }
+        navigate(`/analytics/${quiz.id}`);
+      } catch (err: unknown) {
+        console.error('Error ending game:', err);
+        setError(err instanceof Error ? err.message : 'Failed to end game');
       }
-    });
+    }
   };
 
   // Fetch answers for the current question (real-time)
@@ -719,40 +751,48 @@ const HostGame = () => {
       {gameStarted && showResults && (
         <div className="mx-auto max-w-3xl">
           <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <h2 className="text-2xl font-semibold mb-4">Leaderboard</h2>
-            <div className="mb-2 text-lg text-gray-700">Next question in {resultsCountdown}s</div>
-            {players.length > 0 ? (
-              <div className="space-y-2">
-                {players.slice(0, 5).map((player, index) => (
-                  <div
-                    key={index}
-                    className={`flex justify-between items-center p-3 rounded ${
-                      index === 0 ? 'bg-brand-blue text-white' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="font-bold">#{index + 1}</span>
-                      <span>{player.nickname}</span>
-                    </div>
-                    <span className="font-bold">{player.total_score} pts</span>
+            {!showLeaderboard ? (
+              <>
+                <h2 className="text-2xl font-semibold mb-4">Results</h2>
+                {/* Display correct answer and explanation */}
+                {currentQuestion && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <h3 className="font-medium text-blue-800 mb-2">Correct Answer</h3>
+                    <p className="text-blue-700">{currentQuestion.correct_answer}</p>
+                    {currentQuestion.explanation && (
+                      <>
+                        <h3 className="font-medium text-blue-800 mt-2 mb-2">Explanation</h3>
+                        <p className="text-blue-700">{currentQuestion.explanation}</p>
+                      </>
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-600">No leaderboard data yet.</p>
-            )}
-            {/* Display correct answer and explanation */}
-            {currentQuestion && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                <h3 className="font-medium text-blue-800 mb-2">Correct Answer</h3>
-                <p className="text-blue-700">{currentQuestion.correct_answer}</p>
-                {currentQuestion.explanation && (
-                  <>
-                    <h3 className="font-medium text-blue-800 mt-2 mb-2">Explanation</h3>
-                    <p className="text-blue-700">{currentQuestion.explanation}</p>
-                  </>
                 )}
-              </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-semibold mb-4">Leaderboard</h2>
+                <div className="mb-2 text-lg text-gray-700">Next question in {resultsCountdown}s</div>
+                {players.length > 0 ? (
+                  <div className="space-y-2">
+                    {players.slice(0, 5).map((player, index) => (
+                      <div
+                        key={index}
+                        className={`flex justify-between items-center p-3 rounded ${
+                          index === 0 ? 'bg-brand-blue text-white' : 'bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <span className="font-bold">#{index + 1}</span>
+                          <span>{player.nickname}</span>
+                        </div>
+                        <span className="font-bold">{player.total_score} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-600">No leaderboard data yet.</p>
+                )}
+              </>
             )}
           </div>
         </div>
