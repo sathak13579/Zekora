@@ -95,7 +95,7 @@ const JoinGame = () => {
           </div>
           <h1 className="mt-6 text-3xl font-bold text-gray-900">Join a Quiz</h1>
           <p className="mt-2 text-gray-600">
-            Enter the game PIN and your nickname to participate
+            Enter the quiz PIN and your nickname to participate
           </p>
         </div>
 
@@ -109,7 +109,7 @@ const JoinGame = () => {
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
               <label htmlFor="gamePin" className="block text-sm font-medium text-gray-700">
-                Game PIN
+                QUIZ PIN
               </label>
               <input
                 id="gamePin"
@@ -150,7 +150,7 @@ const JoinGame = () => {
               disabled={isSubmitting || !gamePin.trim() || !nickname.trim()}
               className="flex w-full justify-center rounded-md bg-brand-blue px-4 py-3 text-base font-medium text-white shadow-sm transition-colors hover:bg-brand-blue/90 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSubmitting ? 'Joining...' : 'Join Game'}
+              {isSubmitting ? 'Joining...' : 'Join Quiz'}
             </button>
           </div>
         </form>

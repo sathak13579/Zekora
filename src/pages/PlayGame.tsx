@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-provider';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { Timer, Trophy, Users } from 'lucide-react';
 import { calculateScore } from '../lib/utils';
@@ -32,7 +33,7 @@ const PlayGame = () => {
   const navigate = useNavigate();
   const { supabase } = useSupabase();
   const playerIdRef = useRef<string | null>(null);
-  const gameChannelRef = useRef<any>(null);
+  const gameChannelRef = useRef<RealtimeChannel | null>(null);
   
   const [nickname, setNickname] = useState(searchParams.get('nickname') || '');
   const [session, setSession] = useState<GameSession | null>(null);
@@ -244,9 +245,21 @@ const PlayGame = () => {
           setLeaderboard(payload.payload.leaderboard);
         }
       })
-      .on('broadcast', { event: 'game_ended' }, (payload) => {
+      .on('broadcast', { event: 'game_ended' }, async (payload) => {
         setGameStatus('finished');
-        if (payload.payload.leaderboard) {
+        // Always fetch the latest leaderboard from the DB for accuracy
+        if (session) {
+          const { data: freshPlayers, error } = await supabase
+            .from('players')
+            .select('*')
+            .eq('session_id', session.id)
+            .order('total_score', { ascending: false });
+          if (!error && freshPlayers) {
+            setLeaderboard(freshPlayers);
+          } else if (payload.payload.leaderboard) {
+            setLeaderboard(payload.payload.leaderboard);
+          }
+        } else if (payload.payload.leaderboard) {
           setLeaderboard(payload.payload.leaderboard);
         }
       })
