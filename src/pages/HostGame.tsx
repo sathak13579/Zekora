@@ -484,6 +484,12 @@ const HostGame = () => {
   const handleNextQuestion = async () => {
     if (!session || !quiz) return;
 
+    // Clear any existing timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
     // Check if this is the last question
     if (currentQuestionIndexRef.current < questions.length - 1) {
       // Calculate new index first
