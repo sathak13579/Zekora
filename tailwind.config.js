@@ -48,8 +48,8 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         brand: {
-          blue: "#4F46E5",
-          purple: "#9333EA",
+          blue: "#00D4FF",
+          purple: "#8B5CF6",
         }
       },
       borderRadius: {
@@ -99,6 +99,19 @@ export default {
             transform: "scale(0) rotate(360deg)",
             opacity: "0"
           }
+        },
+        "electric-pulse": {
+          "0%, 100%": {
+            boxShadow: "0 0 5px hsl(var(--primary)), 0 0 10px hsl(var(--primary)), 0 0 15px hsl(var(--primary))"
+          },
+          "50%": {
+            boxShadow: "0 0 10px hsl(var(--primary)), 0 0 20px hsl(var(--primary)), 0 0 30px hsl(var(--primary))"
+          }
+        },
+        "lightning": {
+          "0%": { opacity: "0", transform: "translateX(-100%)" },
+          "50%": { opacity: "1", transform: "translateX(0%)" },
+          "100%": { opacity: "0", transform: "translateX(100%)" }
         }
       },
       animation: {
@@ -110,6 +123,8 @@ export default {
         "slide-down": "slide-down 0.3s ease-out",
         "pulse-light": "pulse-light 1.5s ease-in-out infinite",
         "spark": "spark 1s ease-in-out infinite",
+        "electric-pulse": "electric-pulse 2s ease-in-out infinite",
+        "lightning": "lightning 1.5s ease-in-out infinite",
       },
     },
   },

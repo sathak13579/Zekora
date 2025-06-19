@@ -124,11 +124,11 @@ const Dashboard = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'draft':
-        return <Edit className="h-5 w-5 text-gray-500" />;
+        return <Edit className="h-5 w-5 text-muted-foreground" />;
       case 'ready':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle className="h-5 w-5 text-green-400" />;
       case 'completed':
-        return <Clock className="h-5 w-5 text-blue-500" />;
+        return <Clock className="h-5 w-5 text-blue-400" />;
       default:
         return null;
     }
@@ -189,7 +189,7 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -199,17 +199,17 @@ const Dashboard = () => {
   const totalItems = filteredQuizzes().length;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 bg-background">
       <div className="mb-8 flex flex-col justify-between sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Quizzes</h1>
-          <p className="mt-1 text-gray-600">
+          <h1 className="text-3xl font-bold text-foreground">My Quizzes</h1>
+          <p className="mt-1 text-muted-foreground">
             Create, manage, and host interactive quizzes
           </p>
         </div>
         <Link
           to="/create"
-          className="mt-4 inline-flex items-center rounded-md bg-brand-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-blue/90 sm:mt-0"
+          className="mt-4 inline-flex items-center rounded-md bg-gradient-to-r from-primary to-accent px-4 py-2 text-sm font-medium text-black shadow-sm hover:opacity-90 sm:mt-0 electric-glow"
         >
           <Plus className="mr-2 h-4 w-4" />
           Create New Quiz
@@ -217,24 +217,24 @@ const Dashboard = () => {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-md bg-red-50 p-4 text-sm text-red-500">
+        <div className="mb-6 rounded-md bg-red-900/20 border border-red-800/30 p-4 text-sm text-red-400">
           {error}
         </div>
       )}
 
       {quizzes.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-12 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-            <Plus className="h-6 w-6 text-gray-600" />
+        <div className="flex h-64 flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-card p-12 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+            <Plus className="h-6 w-6 text-muted-foreground" />
           </div>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No quizzes yet</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <h3 className="mt-2 text-sm font-medium text-foreground">No quizzes yet</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             Get started by creating a new quiz
           </p>
           <div className="mt-6">
             <Link
               to="/create"
-              className="inline-flex items-center rounded-md bg-brand-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-blue/90"
+              className="inline-flex items-center rounded-md bg-gradient-to-r from-primary to-accent px-4 py-2 text-sm font-medium text-black shadow-sm hover:opacity-90 electric-glow"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create New Quiz
@@ -247,25 +247,25 @@ const Dashboard = () => {
           <div className="mb-4 flex flex-col items-center justify-between space-y-3 sm:flex-row sm:space-y-0">
             <div className="relative w-full sm:max-w-xs">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <Search className="h-5 w-5 text-gray-400" />
+                <Search className="h-5 w-5 text-muted-foreground" />
               </div>
               <input
                 type="text"
                 placeholder="Search quizzes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                className="block w-full rounded-md border border-border bg-input py-2 pl-10 pr-3 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <div className="flex items-center space-x-4">
-              <label htmlFor="itemsPerPage" className="text-sm font-medium text-gray-700">
+              <label htmlFor="itemsPerPage" className="text-sm font-medium text-foreground">
                 Show:
               </label>
               <select
                 id="itemsPerPage"
                 value={itemsPerPage}
                 onChange={handleChangeItemsPerPage}
-                className="block rounded-md border border-gray-300 bg-white py-1.5 pl-3 pr-10 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                className="block rounded-md border border-border bg-input py-1.5 pl-3 pr-10 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value={5}>5</option>
                 <option value={10}>10</option>
@@ -275,48 +275,48 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="mt-2 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="mt-2 overflow-hidden rounded-lg border border-border shadow-sm">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-secondary">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Quiz Title
                   </th>
-                  <th scope="col" className="hidden px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 md:table-cell">
+                  <th scope="col" className="hidden px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground md:table-cell">
                     Created
                   </th>
-                  <th scope="col" className="hidden px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 sm:table-cell">
+                  <th scope="col" className="hidden px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground sm:table-cell">
                     Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
+              <tbody className="divide-y divide-border bg-card">
                 {currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-muted-foreground">
                       No quizzes found matching your search.
                     </td>
                   </tr>
                 ) : (
                   currentItems.map((quiz) => (
-                    <tr key={quiz.id} className="group hover:bg-gray-50">
+                    <tr key={quiz.id} className="group hover:bg-secondary/50">
                       <td className="whitespace-nowrap px-6 py-4">
                         <div className="flex items-center">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-foreground">
                             {quiz.title}
                           </div>
                         </div>
                       </td>
-                      <td className="hidden whitespace-nowrap px-6 py-4 text-sm text-gray-500 md:table-cell">
+                      <td className="hidden whitespace-nowrap px-6 py-4 text-sm text-muted-foreground md:table-cell">
                         {formatDate(quiz.created_at)}
                       </td>
                       <td className="hidden whitespace-nowrap px-6 py-4 sm:table-cell">
                         <div className="flex items-center">
                           {getStatusIcon(quiz.status)}
-                          <span className="ml-1.5 text-sm text-gray-700">
+                          <span className="ml-1.5 text-sm text-foreground">
                             {getStatusText(quiz.status)}
                           </span>
                         </div>
@@ -326,7 +326,7 @@ const Dashboard = () => {
                           {quiz.status === 'ready' && (
                             <Link
                               to={`/host/${quiz.id}`}
-                              className="inline-flex items-center rounded-md bg-green-100 px-2.5 py-1.5 text-sm font-medium text-green-800 hover:bg-green-200"
+                              className="inline-flex items-center rounded-md bg-green-900/20 px-2.5 py-1.5 text-sm font-medium text-green-400 hover:bg-green-900/30 border border-green-800/30"
                             >
                               <Play className="mr-1 h-4 w-4" />
                               Host
@@ -335,7 +335,7 @@ const Dashboard = () => {
                           {quiz.status === 'completed' && (
                             <Link
                               to={`/analytics/${quiz.id}`}
-                              className="inline-flex items-center rounded-md bg-blue-100 px-2.5 py-1.5 text-sm font-medium text-blue-800 hover:bg-blue-200"
+                              className="inline-flex items-center rounded-md bg-blue-900/20 px-2.5 py-1.5 text-sm font-medium text-blue-400 hover:bg-blue-900/30 border border-blue-800/30"
                             >
                               <BarChart3 className="mr-1 h-4 w-4" />
                               Analytics
@@ -343,14 +343,14 @@ const Dashboard = () => {
                           )}
                           <button
                             onClick={() => handleCloneQuiz(quiz)}
-                            className="inline-flex items-center rounded-md bg-gray-100 px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                            className="inline-flex items-center rounded-md bg-secondary px-2.5 py-1.5 text-sm font-medium text-foreground hover:bg-secondary/80 border border-border"
                           >
                             <Copy className="mr-1 h-4 w-4" />
                             Clone
                           </button>
                           <Link
                             to={`/create?edit=${quiz.id}`}
-                            className="inline-flex items-center rounded-md bg-gray-100 px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                            className="inline-flex items-center rounded-md bg-secondary px-2.5 py-1.5 text-sm font-medium text-foreground hover:bg-secondary/80 border border-border"
                           >
                             <Edit className="mr-1 h-4 w-4" />
                             Edit
@@ -366,7 +366,7 @@ const Dashboard = () => {
           
           {/* Pagination controls */}
           <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center text-sm text-gray-700">
+            <div className="flex items-center text-sm text-muted-foreground">
               <span className="hidden sm:inline">Showing </span>
               <span className="font-medium">{totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span>
               <span className="mx-1">to</span>
@@ -380,7 +380,7 @@ const Dashboard = () => {
               <button
                 onClick={goToPreviousPage}
                 disabled={currentPage === 1}
-                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center rounded-md border border-border bg-card px-3 py-1 text-sm font-medium text-foreground hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" />
                 <span className="ml-1 hidden sm:inline">Previous</span>
@@ -406,8 +406,8 @@ const Dashboard = () => {
                         onClick={() => setCurrentPage(pageNum)}
                         className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${
                           currentPage === pageNum
-                            ? 'bg-brand-blue text-white'
-                            : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                            ? 'bg-primary text-black'
+                            : 'border border-border bg-card text-foreground hover:bg-secondary'
                         }`}
                       >
                         {pageNum}
@@ -420,7 +420,7 @@ const Dashboard = () => {
               <button
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
-                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center rounded-md border border-border bg-card px-3 py-1 text-sm font-medium text-foreground hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className="mr-1 hidden sm:inline">Next</span>
                 <ChevronRight className="h-4 w-4" />
