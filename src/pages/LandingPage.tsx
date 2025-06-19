@@ -281,7 +281,10 @@ const LandingPage = () => {
                       transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
                       className={`inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${features[currentFeature].color} mb-6`}
                     >
-                      <features[currentFeature].icon className="h-8 w-8 text-white" />
+                      {(() => {
+                        const IconComponent = features[currentFeature].icon;
+                        return <IconComponent className="h-8 w-8 text-white" />;
+                      })()}
                     </motion.div>
                     <motion.h3
                       initial={{ opacity: 0, y: 20 }}
@@ -321,7 +324,10 @@ const LandingPage = () => {
                     whileHover={{ scale: index === currentFeature ? 1.05 : 1.02 }}
                   >
                     <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br ${feature.color} mb-3`}>
-                      <feature.icon className="h-5 w-5 text-white" />
+                      {(() => {
+                        const IconComponent = feature.icon;
+                        return <IconComponent className="h-5 w-5 text-white" />;
+                      })()}
                     </div>
                     <h4 className="text-white font-semibold text-sm mb-1">{feature.title}</h4>
                     <div className="flex items-center">
