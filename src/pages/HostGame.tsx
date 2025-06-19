@@ -57,10 +57,8 @@ const HostGame = () => {
   const playerSubscriptionRef = useRef<RealtimeChannel | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const gameChannelRef = useRef<RealtimeChannel | null>(null);
-  const currentQuestionIndexRef = useRef<number>(() => {
-    const savedIndex = localStorage.getItem(`questionIndex_${quizId}`);
-    return savedIndex ? parseInt(savedIndex, 10) : 0;
-  });
+  const answersChannelRef = useRef<RealtimeChannel | null>(null);
+  const currentQuestionIndexRef = useRef<number>(0);
 
   // State
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -213,6 +211,14 @@ const HostGame = () => {
       }
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
+      }
+      if (gameChannelRef.current) {
+        supabase.removeChannel(gameChannelRef.current);
+        gameChannelRef.current = null;
+      }
+      if (answersChannelRef.current) {
+        supabase.removeChannel(answersChannelRef.current);
+        answersChannelRef.current = null;
       }
     };
   }, [quizId, supabase, user, userLoading, navigate]);
@@ -572,58 +578,92 @@ const HostGame = () => {
     const currentQuestion = questions[currentQuestionIndex];
     if (!currentQuestion) return;
 
+    console.log(
+      `Setting up answer channel for question ${
+        currentQuestionIndex + 1
+      } (ID: ${currentQuestion.id})`
+    );
+
     // Function to fetch answers
     const fetchAnswers = async () => {
+      console.log(
+        `Fetching initial answers for question ${currentQuestion.id}`
+      );
       const { data, error } = await supabase
         .from("player_answers")
         .select("*")
         .eq("question_id", currentQuestion.id);
-      if (!error) setAnswers(data || []);
+      if (!error) {
+        console.log(`Fetched ${data?.length || 0} initial answers`);
+        setAnswers(data || []);
+      } else {
+        console.error("Error fetching answers:", error);
+      }
     };
 
-    // Subscribe to real-time changes for player_answers for this question
-    const answerChannel = supabase
-      .channel(`answers:${currentQuestion.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "player_answers",
-          filter: `question_id=eq.${currentQuestion.id}`,
-        },
-        (payload) => {
-          console.log("Answer update received:", payload);
-          if (payload.eventType === "INSERT") {
-            setAnswers((current) => {
-              const newAnswers = [...current, payload.new as PlayerAnswer];
-              console.log("Updated answers:", newAnswers);
-              return newAnswers;
-            });
-          } else if (payload.eventType === "DELETE") {
-            setAnswers((current) => {
-              const filteredAnswers = current.filter(
-                (a) => a.player_id !== payload.old.player_id
-              );
-              console.log("Updated answers after delete:", filteredAnswers);
-              return filteredAnswers;
-            });
+    // Set up a single persistent channel for all questions
+    if (!answersChannelRef.current) {
+      console.log("Setting up persistent answers channel");
+      answersChannelRef.current = supabase
+        .channel("game_answers")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "player_answers",
+          },
+          (payload) => {
+            // Only process answers for the current question
+            const answer = payload.new as PlayerAnswer;
+            if (answer && answer.question_id === currentQuestion.id) {
+              console.log("Answer update received:", payload);
+              if (payload.eventType === "INSERT") {
+                setAnswers((current) => {
+                  const newAnswers = [...current, payload.new as PlayerAnswer];
+                  console.log(`Updated answers count: ${newAnswers.length}`);
+                  return newAnswers;
+                });
+              } else if (payload.eventType === "DELETE") {
+                setAnswers((current) => {
+                  const filteredAnswers = current.filter(
+                    (a) => a.player_id !== payload.old.player_id
+                  );
+                  console.log(
+                    `Updated answers count after delete: ${filteredAnswers.length}`
+                  );
+                  return filteredAnswers;
+                });
+              }
+            }
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log("Answer channel subscription status:", status);
-      });
+        )
+        .subscribe((status) => {
+          console.log("Answers channel subscription status:", status);
+        });
+    }
 
-    // Fetch initial answers
+    // Fetch initial answers for the current question
     fetchAnswers();
 
     // Cleanup
     return () => {
-      console.log("Cleaning up answer channel subscription");
-      supabase.removeChannel(answerChannel);
+      // Don't remove the channel here, let it persist
+      // Just clear the answers for the current question
+      setAnswers([]);
     };
   }, [session, currentQuestionIndex, questions, supabase]);
+
+  // Clean up the persistent channel when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (answersChannelRef.current) {
+        console.log("Cleaning up persistent answers channel");
+        supabase.removeChannel(answersChannelRef.current);
+        answersChannelRef.current = null;
+      }
+    };
+  }, [supabase]);
 
   if (userLoading || loading) {
     return (
