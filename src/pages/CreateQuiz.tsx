@@ -704,7 +704,7 @@ const CreateQuiz = () => {
             <>
               <Save className="mr-2 h-5 w-5" />
               Save Quiz
-            <//>
+            </>
           )}
         </button>
       </div>
