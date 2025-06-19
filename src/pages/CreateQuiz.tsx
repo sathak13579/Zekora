@@ -89,12 +89,13 @@ const CreateQuiz = () => {
     
     loadQuizData();
 
-    // Cleanup function to reset quiz data when leaving the page
+    // Cleanup function - only reset if we're in edit mode to avoid clearing unsaved data
     return () => {
-      if (!isEditMode) {
-        // Only reset if we're not in edit mode to avoid clearing data when editing
+      if (isEditMode) {
+        // Only reset when leaving edit mode to avoid clearing data when editing
         resetQuizData();
       }
+      // For new quiz creation, we DON'T reset the data to persist it across navigation
     };
   }, [supabase, user, editQuizId, isEditMode, setQuizData, resetQuizData]);
 
