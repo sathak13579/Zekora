@@ -14,18 +14,18 @@ export function Accordion({ title, children, defaultOpen = false, className }: A
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className={cn('rounded-lg border border-border bg-card', className)}>
+    <div className={cn('rounded-lg border border-gray-200', className)}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-secondary/50 transition-colors"
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
-        <span className="text-sm font-medium text-foreground">{title}</span>
+        <span className="text-sm font-medium text-gray-900">{title}</span>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+          <ChevronDown className="h-5 w-5 text-gray-500" />
         </motion.div>
       </button>
       
@@ -38,7 +38,7 @@ export function Accordion({ title, children, defaultOpen = false, className }: A
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border px-4 py-3">
+            <div className="border-t border-gray-200 px-4 py-3">
               {children}
             </div>
           </motion.div>

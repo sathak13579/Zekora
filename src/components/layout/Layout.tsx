@@ -12,7 +12,7 @@ const Layout = () => {
   const isPlayPage = location.pathname.includes('/play/');
   
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
+    <div className="flex min-h-screen flex-col">
       {!isPlayPage && <Header user={user} />}
       <main className="flex-1">
         <Outlet />
