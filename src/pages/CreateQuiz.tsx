@@ -6,7 +6,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { Accordion } from '../components/ui/Accordion';
-import { generateQuestionsFromText } from '../lib/utils';
+import { generateQuestionsFromText, extractTranscriptFromVideoUrl } from '../lib/utils';
 
 type QuizData = {
   id?: string;
@@ -141,17 +141,37 @@ const CreateQuiz = () => {
       } else if (inputMethod === 'file') {
         contentToProcess = fileContent;
       } else if (inputMethod === 'video') {
-        contentToProcess = `Video content from: ${videoUrl}`;
+        if (!videoUrl.trim()) {
+          setError('Please provide a video URL');
+          return;
+        }
+        
+        setIsGenerating(true);
+        setError(null);
+        
+        try {
+          // Extract transcript from video URL
+          contentToProcess = await extractTranscriptFromVideoUrl(videoUrl);
+          toast.success('Video transcript extracted successfully!');
+        } catch (err: any) {
+          console.error('Error extracting video transcript:', err);
+          toast.error(err.message || 'Failed to extract video transcript');
+          setIsGenerating(false);
+          return;
+        }
       }
     }
     
     if (!contentToProcess.trim()) {
       setError('Please provide content to generate questions');
+      setIsGenerating(false);
       return;
     }
     
-    setIsGenerating(true);
-    setError(null);
+    if (!isGenerating) {
+      setIsGenerating(true);
+      setError(null);
+    }
     
     try {
       const generatedQuestions = await generateQuestionsFromText(contentToProcess);
@@ -596,10 +616,10 @@ const CreateQuiz = () => {
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-brand-blue sm:text-sm"
-                    placeholder="Enter YouTube or Vimeo URL"
+                    placeholder="Enter YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID)"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    We'll extract subtitles from the video to generate questions
+                    We'll extract captions from the YouTube video to generate questions
                   </p>
                   <button
                     type="button"
@@ -610,10 +630,10 @@ const CreateQuiz = () => {
                     {isGenerating ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating...
+                        Extracting & Generating...
                       </>
                     ) : (
-                      'Generate Questions'
+                      'Generate Questions from Video'
                     )}
                   </button>
                 </div>

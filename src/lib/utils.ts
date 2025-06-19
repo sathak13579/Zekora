@@ -29,6 +29,32 @@ export function formatTime(ms: number): string {
   return `${seconds}.${deciseconds}s`;
 }
 
+export async function extractTranscriptFromVideoUrl(videoUrl: string): Promise<string> {
+  const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-video-transcript`;
+  
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ videoUrl }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to extract video transcript');
+    }
+
+    const data = await response.json();
+    return data.transcript;
+  } catch (error) {
+    console.error('Error extracting video transcript:', error);
+    throw error;
+  }
+}
+
 export async function generateQuestionsFromText(text: string): Promise<any[]> {
   const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-quiz-questions`;
   
