@@ -4,6 +4,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 import { useSupabase } from "../lib/supabase-provider";
 import { generateGamePin } from "../lib/utils";
 import { Users, Clock, Play, ArrowRight, Copy } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 // Types
@@ -507,8 +508,6 @@ const HostGame = () => {
         localStorageValue: localStorage.getItem(`questionIndex_${quizId}`),
       });
 
-      // Update state and localStorage
-
       // Then show leaderboard
       await showLeaderboardWithRefresh(async () => {
         setCurrentQuestionIndex(newIndex);
@@ -764,16 +763,31 @@ const HostGame = () => {
                   <p className="mt-2 text-sm text-gray-500">No players yet</p>
                 </div>
               ) : (
-                <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                  {players.map((player) => (
-                    <li
-                      key={player.id}
-                      className="rounded-md bg-gray-100 p-2 text-center text-sm font-medium"
-                    >
-                      {player.nickname}
-                    </li>
-                  ))}
-                </ul>
+                <AnimatePresence>
+                  <motion.ul 
+                    className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4"
+                    layout
+                  >
+                    {players.map((player) => (
+                      <motion.li
+                        key={player.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ 
+                          type: "spring", 
+                          stiffness: 300, 
+                          damping: 30,
+                          opacity: { duration: 0.2 }
+                        }}
+                        className="rounded-md bg-gray-100 p-2 text-center text-sm font-medium"
+                      >
+                        {player.nickname}
+                      </motion.li>
+                    ))}
+                  </motion.ul>
+                </AnimatePresence>
               )}
             </div>
 
@@ -879,10 +893,22 @@ const HostGame = () => {
           <div className="bg-white rounded-lg shadow-md p-6 text-center">
             {!showLeaderboard ? (
               <>
-                <h2 className="text-2xl font-semibold mb-4">Results</h2>
+                <motion.h2 
+                  className="text-2xl font-semibold mb-4"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  Results
+                </motion.h2>
                 {/* Display correct answer and explanation */}
                 {currentQuestion && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <motion.div 
+                    className="mt-4 p-4 bg-blue-50 rounded-lg"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.4 }}
+                  >
                     <h3 className="font-medium text-blue-800 mb-2">
                       Correct Answer
                     </h3>
@@ -899,36 +925,124 @@ const HostGame = () => {
                         </p>
                       </>
                     )}
-                  </div>
+                  </motion.div>
                 )}
               </>
             ) : (
               <>
-                <h2 className="text-2xl font-semibold mb-4">Leaderboard</h2>
-                <div className="mb-2 text-lg text-gray-700">
+                <motion.h2 
+                  className="text-2xl font-semibold mb-4"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  Leaderboard
+                </motion.h2>
+                <motion.div 
+                  className="mb-2 text-lg text-gray-700"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.3 }}
+                >
                   Next question in {resultsCountdown}s
-                </div>
+                </motion.div>
                 {players.length > 0 ? (
-                  <div className="space-y-2">
-                    {players.slice(0, 5).map((player, index) => (
-                      <div
-                        key={index}
-                        className={`flex justify-between items-center p-3 rounded ${
-                          index === 0
-                            ? "bg-brand-blue text-white"
-                            : "bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <span className="font-bold">#{index + 1}</span>
-                          <span>{player.nickname}</span>
-                        </div>
-                        <span className="font-bold">
-                          {player.total_score} pts
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <AnimatePresence>
+                    <motion.div 
+                      className="space-y-2"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3, duration: 0.4 }}
+                    >
+                      {players.slice(0, 5).map((player, index) => (
+                        <motion.div
+                          key={player.id}
+                          layout
+                          initial={{ opacity: 0, x: -50, scale: 0.9 }}
+                          animate={{ 
+                            opacity: 1, 
+                            x: 0, 
+                            scale: 1,
+                            transition: {
+                              type: "spring",
+                              stiffness: 300,
+                              damping: 30,
+                              delay: index * 0.1
+                            }
+                          }}
+                          exit={{ 
+                            opacity: 0, 
+                            x: 50, 
+                            scale: 0.9,
+                            transition: { duration: 0.2 }
+                          }}
+                          transition={{
+                            layout: {
+                              type: "spring",
+                              stiffness: 300,
+                              damping: 30
+                            }
+                          }}
+                          className={`flex justify-between items-center p-4 rounded-lg shadow-sm ${
+                            index === 0
+                              ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white shadow-lg transform scale-105"
+                              : index === 1
+                              ? "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800"
+                              : index === 2
+                              ? "bg-gradient-to-r from-orange-300 to-orange-400 text-orange-800"
+                              : "bg-gray-50 text-gray-800"
+                          }`}
+                          whileHover={{ 
+                            scale: index === 0 ? 1.08 : 1.02,
+                            transition: { duration: 0.2 }
+                          }}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <motion.span 
+                              className={`font-bold text-lg ${
+                                index === 0 ? "text-2xl" : ""
+                              }`}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ 
+                                delay: index * 0.1 + 0.2,
+                                type: "spring",
+                                stiffness: 400,
+                                damping: 20
+                              }}
+                            >
+                              #{index + 1}
+                            </motion.span>
+                            <motion.span 
+                              className={`font-medium ${
+                                index === 0 ? "text-lg" : ""
+                              }`}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: index * 0.1 + 0.3 }}
+                            >
+                              {player.nickname}
+                            </motion.span>
+                          </div>
+                          <motion.span 
+                            className={`font-bold ${
+                              index === 0 ? "text-xl" : "text-lg"
+                            }`}
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ 
+                              delay: index * 0.1 + 0.4,
+                              type: "spring",
+                              stiffness: 400,
+                              damping: 20
+                            }}
+                          >
+                            {player.total_score} pts
+                          </motion.span>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  </AnimatePresence>
                 ) : (
                   <p className="text-gray-600">No leaderboard data yet.</p>
                 )}

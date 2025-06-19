@@ -4,6 +4,7 @@ import { useSupabase } from '../lib/supabase-provider';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { Timer, Trophy, Users } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { calculateScore } from '../lib/utils';
 
 interface Question {
@@ -453,70 +454,257 @@ const PlayGame = () => {
       <div className="max-w-4xl mx-auto">
         {/* Waiting for game to start */}
         {gameStatus === 'waiting' && (
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <div className="mb-4">
+          <motion.div 
+            className="bg-white rounded-lg shadow-md p-6 text-center"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.div 
+              className="mb-4"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+            >
               <Users className="w-12 h-12 mx-auto text-brand-blue" />
-            </div>
-            <h2 className="text-2xl font-semibold mb-2">Welcome, {nickname}!</h2>
-            <p className="text-gray-600 mb-4">You've joined the game successfully.</p>
-            <p className="text-lg text-brand-blue font-medium">Waiting for the host to start the quiz...</p>
-            <div className="mt-6">
+            </motion.div>
+            <motion.h2 
+              className="text-2xl font-semibold mb-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              Welcome, {nickname}!
+            </motion.h2>
+            <motion.p 
+              className="text-gray-600 mb-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+            >
+              You've joined the game successfully.
+            </motion.p>
+            <motion.p 
+              className="text-lg text-brand-blue font-medium"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
+            >
+              Waiting for the host to start the quiz...
+            </motion.p>
+            <motion.div 
+              className="mt-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.5 }}
+            >
               <LoadingSpinner />
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Show leaderboard/results between questions */}
         {gameStatus === 'playing' && showResults && showLeaderboard && (
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <h2 className="text-2xl font-semibold mb-4">Leaderboard</h2>
-            <div className="mb-2 text-lg text-gray-700">Next question in {resultsCountdown}s</div>
+          <motion.div 
+            className="bg-white rounded-lg shadow-md p-6 text-center"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.h2 
+              className="text-2xl font-semibold mb-4"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              Leaderboard
+            </motion.h2>
+            <motion.div 
+              className="mb-2 text-lg text-gray-700"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.3 }}
+            >
+              Next question in {resultsCountdown}s
+            </motion.div>
             {leaderboard.length > 0 ? (
-              <div className="space-y-2">
-                {leaderboard.slice(0, 5).map((player, index) => (
-                  <div
-                    key={index}
-                    className={`flex justify-between items-center p-3 rounded ${
-                      player.nickname === nickname ? 'bg-brand-blue text-white' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="font-bold">#{index + 1}</span>
-                      <span>{player.nickname}</span>
-                    </div>
-                    <span className="font-bold">{player.total_score} pts</span>
-                  </div>
-                ))}
-              </div>
+              <AnimatePresence>
+                <motion.div 
+                  className="space-y-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.4 }}
+                >
+                  {leaderboard.slice(0, 5).map((player, index) => (
+                    <motion.div
+                      key={player.id}
+                      layout
+                      initial={{ opacity: 0, x: -50, scale: 0.9 }}
+                      animate={{ 
+                        opacity: 1, 
+                        x: 0, 
+                        scale: 1,
+                        transition: {
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30,
+                          delay: index * 0.1
+                        }
+                      }}
+                      exit={{ 
+                        opacity: 0, 
+                        x: 50, 
+                        scale: 0.9,
+                        transition: { duration: 0.2 }
+                      }}
+                      transition={{
+                        layout: {
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30
+                        }
+                      }}
+                      className={`flex justify-between items-center p-4 rounded-lg shadow-sm ${
+                        player.nickname === nickname 
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white ring-2 ring-indigo-300' 
+                          : index === 0
+                          ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white shadow-lg transform scale-105"
+                          : index === 1
+                          ? "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800"
+                          : index === 2
+                          ? "bg-gradient-to-r from-orange-300 to-orange-400 text-orange-800"
+                          : "bg-gray-50 text-gray-800"
+                      }`}
+                      whileHover={{ 
+                        scale: player.nickname === nickname ? 1.05 : index === 0 ? 1.08 : 1.02,
+                        transition: { duration: 0.2 }
+                      }}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <motion.span 
+                          className={`font-bold text-lg ${
+                            index === 0 ? "text-2xl" : ""
+                          }`}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ 
+                            delay: index * 0.1 + 0.2,
+                            type: "spring",
+                            stiffness: 400,
+                            damping: 20
+                          }}
+                        >
+                          #{index + 1}
+                        </motion.span>
+                        <motion.span 
+                          className={`font-medium ${
+                            index === 0 ? "text-lg" : ""
+                          }`}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.1 + 0.3 }}
+                        >
+                          {player.nickname}
+                        </motion.span>
+                        {player.nickname === nickname && (
+                          <motion.span 
+                            className="text-xs bg-white/20 px-2 py-1 rounded-full"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.5, type: "spring" }}
+                          >
+                            You
+                          </motion.span>
+                        )}
+                      </div>
+                      <motion.span 
+                        className={`font-bold ${
+                          index === 0 ? "text-xl" : "text-lg"
+                        }`}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ 
+                          delay: index * 0.1 + 0.4,
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 20
+                        }}
+                      >
+                        {player.total_score} pts
+                      </motion.span>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
             ) : (
               <p className="text-gray-600">No leaderboard data yet.</p>
             )}
-          </div>
+          </motion.div>
         )}
 
         {/* Playing - Question View */}
         {gameStatus === 'playing' && (!showResults || (showResults && !showLeaderboard)) && currentQuestion && (
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <motion.div 
+            className="bg-white rounded-lg shadow-md p-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Question</h2>
+              <motion.h2 
+                className="text-xl font-semibold"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+              >
+                Question
+              </motion.h2>
               {timeRemaining !== null && (
-                <div className="flex items-center space-x-2">
+                <motion.div 
+                  className="flex items-center space-x-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                >
                   <Timer className="w-5 h-5" />
                   <span className="text-lg font-medium">{timeRemaining}s</span>
-                </div>
+                </motion.div>
               )}
             </div>
             
-            <p className="text-lg mb-6">{currentQuestion.question_text}</p>
+            <motion.p 
+              className="text-lg mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              {currentQuestion.question_text}
+            </motion.p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {currentQuestion.options.map((option, index) => (
-                <button
+                <motion.button
                   key={index}
                   onClick={() => {
                     if (!isAnswerSubmitted) {
                       handleSubmitAnswer(option);
                     }
+                  }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ 
+                    delay: 0.4 + index * 0.1, 
+                    duration: 0.3,
+                    type: "spring",
+                    stiffness: 300
+                  }}
+                  whileHover={{ 
+                    scale: isAnswerSubmitted ? 1 : 1.02,
+                    transition: { duration: 0.2 }
+                  }}
+                  whileTap={{ 
+                    scale: isAnswerSubmitted ? 1 : 0.98,
+                    transition: { duration: 0.1 }
                   }}
                   className={`p-4 rounded-lg text-left transition-colors ${
                     selectedAnswer === option
@@ -537,57 +725,127 @@ const PlayGame = () => {
                     </span>
                     {option}
                   </div>
-                </button>
+                </motion.button>
               ))}
             </div>
 
             {showResults && currentQuestion.explanation && (
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+              <motion.div 
+                className="mb-6 p-4 bg-blue-50 rounded-lg"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
+              >
                 <h3 className="font-medium text-blue-800 mb-2">Explanation</h3>
                 <p className="text-blue-700">{currentQuestion.explanation}</p>
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         )}
 
         {/* Game finished */}
         {gameStatus === 'finished' && (
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <div className="mb-4">
+          <motion.div 
+            className="bg-white rounded-lg shadow-md p-6 text-center"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.div 
+              className="mb-4"
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+            >
               <Trophy className="w-12 h-12 mx-auto text-yellow-500" />
-            </div>
-            <h2 className="text-2xl font-semibold mb-4">Quiz Complete!</h2>
-            <p className="text-gray-600 mb-6">Thanks for playing, {nickname}!</p>
+            </motion.div>
+            <motion.h2 
+              className="text-2xl font-semibold mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              Quiz Complete!
+            </motion.h2>
+            <motion.p 
+              className="text-gray-600 mb-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+            >
+              Thanks for playing, {nickname}!
+            </motion.p>
             
             {leaderboard.length > 0 && (
-              <div className="mt-6">
+              <motion.div 
+                className="mt-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+              >
                 <h3 className="text-lg font-semibold mb-4">Final Results</h3>
-                <div className="space-y-2">
-                  {leaderboard.slice(0, 5).map((player, index) => (
-                    <div
-                      key={index}
-                      className={`flex justify-between items-center p-3 rounded ${
-                        player.nickname === nickname ? 'bg-brand-blue text-white' : 'bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="font-bold">#{index + 1}</span>
-                        <span>{player.nickname}</span>
-                      </div>
-                      <span className="font-bold">{player.total_score} pts</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                <AnimatePresence>
+                  <div className="space-y-2">
+                    {leaderboard.slice(0, 5).map((player, index) => (
+                      <motion.div
+                        key={player.id}
+                        layout
+                        initial={{ opacity: 0, x: -50, scale: 0.9 }}
+                        animate={{ 
+                          opacity: 1, 
+                          x: 0, 
+                          scale: 1,
+                          transition: {
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 30,
+                            delay: index * 0.1
+                          }
+                        }}
+                        transition={{
+                          layout: {
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 30
+                          }
+                        }}
+                        className={`flex justify-between items-center p-3 rounded ${
+                          player.nickname === nickname 
+                            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white ring-2 ring-indigo-300' 
+                            : index === 0
+                            ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white"
+                            : "bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <span className="font-bold">#{index + 1}</span>
+                          <span>{player.nickname}</span>
+                          {player.nickname === nickname && (
+                            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-bold">{player.total_score} pts</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </AnimatePresence>
+              </motion.div>
             )}
             
-            <button
+            <motion.button
               onClick={() => navigate('/join')}
               className="mt-6 px-6 py-2 bg-brand-blue text-white rounded hover:bg-brand-blue/90"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               Join Another Game
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         )}
       </div>
     </div>
