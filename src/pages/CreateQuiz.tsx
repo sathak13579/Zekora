@@ -7,7 +7,24 @@ import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { Accordion } from '../components/ui/Accordion';
 import { generateQuestionsFromText, extractTranscriptFromVideoUrl } from '../lib/utils';
-import { useQuizStore, QuizData, QuestionData } from '../store/quizStore';
+
+type QuizData = {
+  id?: string;
+  title: string;
+  description: string;
+  questions: QuestionData[];
+  has_timer: boolean;
+  question_timer_seconds: number;
+};
+
+type QuestionData = {
+  id?: string;
+  question_text: string;
+  options: string[];
+  correct_answer: string;
+  explanation: string;
+  order: number;
+};
 
 const CreateQuiz = () => {
   const [searchParams] = useSearchParams();
@@ -17,20 +34,13 @@ const CreateQuiz = () => {
   const { supabase, user } = useSupabase();
   const navigate = useNavigate();
   
-  // Use Zustand store instead of local state
-  const {
-    quizData,
-    setQuizData,
-    updateQuizField,
-    updateQuestion,
-    updateOption,
-    addQuestion,
-    removeQuestion,
-    moveQuestion,
-    addGeneratedQuestions,
-    resetQuizData
-  } = useQuizStore();
-
+  const [quizData, setQuizData] = useState<QuizData>({
+    title: '',
+    description: '',
+    questions: [],
+    has_timer: false,
+    question_timer_seconds: 20
+  });
   const [inputText, setInputText] = useState('');
   const [fileContent, setFileContent] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -45,7 +55,7 @@ const CreateQuiz = () => {
       if (!isEditMode || !user) return;
       
       try {
-        const { data: quizDataFromDb, error: quizError } = await supabase
+        const { data: quizData, error: quizError } = await supabase
           .from('quizzes')
           .select('*')
           .eq('id', editQuizId)
@@ -62,12 +72,12 @@ const CreateQuiz = () => {
           
         if (questionsError) throw questionsError;
         
-        const loadedQuizData: QuizData = {
-          id: quizDataFromDb.id,
-          title: quizDataFromDb.title,
-          description: quizDataFromDb.description || '',
-          has_timer: quizDataFromDb.has_timer || false,
-          question_timer_seconds: quizDataFromDb.question_timer_seconds || 20,
+        setQuizData({
+          id: quizData.id,
+          title: quizData.title,
+          description: quizData.description || '',
+          has_timer: quizData.has_timer || false,
+          question_timer_seconds: quizData.question_timer_seconds || 20,
           questions: questionsData.map((q) => ({
             id: q.id,
             question_text: q.question_text,
@@ -76,9 +86,7 @@ const CreateQuiz = () => {
             explanation: q.explanation,
             order: q.order
           }))
-        };
-
-        setQuizData(loadedQuizData);
+        });
       } catch (err: any) {
         console.error('Error loading quiz:', err);
         setError(err.message || 'Failed to load quiz');
@@ -89,15 +97,17 @@ const CreateQuiz = () => {
     
     loadQuizData();
 
-    // Cleanup function - only reset if we're in edit mode to avoid clearing unsaved data
+    // Cleanup: reset quizData when leaving edit mode or switching quizzes
     return () => {
-      if (isEditMode) {
-        // Only reset when leaving edit mode to avoid clearing data when editing
-        resetQuizData();
-      }
-      // For new quiz creation, we DON'T reset the data to persist it across navigation
+      setQuizData({
+        title: '',
+        description: '',
+        questions: [],
+        has_timer: false,
+        question_timer_seconds: 20
+      });
     };
-  }, [supabase, user, editQuizId, isEditMode, setQuizData, resetQuizData]);
+  }, [supabase, user, editQuizId, isEditMode]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -166,7 +176,10 @@ const CreateQuiz = () => {
     try {
       const generatedQuestions = await generateQuestionsFromText(contentToProcess);
       
-      addGeneratedQuestions(generatedQuestions);
+      setQuizData(prev => ({
+        ...prev,
+        questions: [...prev.questions, ...generatedQuestions]
+      }));
 
       setInputText('');
       setFileContent('');
@@ -179,6 +192,79 @@ const CreateQuiz = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const updateQuestion = (index: number, field: keyof QuestionData, value: any) => {
+    setQuizData(prev => {
+      const updatedQuestions = [...prev.questions];
+      updatedQuestions[index] = {
+        ...updatedQuestions[index],
+        [field]: value
+      };
+      return { ...prev, questions: updatedQuestions };
+    });
+  };
+  
+  const updateOption = (questionIndex: number, optionIndex: number, value: string) => {
+    setQuizData(prev => {
+      const updatedQuestions = [...prev.questions];
+      const options = [...updatedQuestions[questionIndex].options];
+      options[optionIndex] = value;
+      updatedQuestions[questionIndex] = {
+        ...updatedQuestions[questionIndex],
+        options
+      };
+      return { ...prev, questions: updatedQuestions };
+    });
+  };
+  
+  const addQuestion = () => {
+    const newOrder = quizData.questions.length;
+    setQuizData(prev => ({
+      ...prev,
+      questions: [
+        ...prev.questions,
+        {
+          question_text: '',
+          options: ['', '', '', ''],
+          correct_answer: '',
+          explanation: '',
+          order: newOrder
+        }
+      ]
+    }));
+  };
+  
+  const removeQuestion = (index: number) => {
+    setQuizData(prev => {
+      const updatedQuestions = prev.questions.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        questions: updatedQuestions.map((q, i) => ({ ...q, order: i }))
+      };
+    });
+  };
+  
+  const moveQuestion = (index: number, direction: 'up' | 'down') => {
+    if (
+      (direction === 'up' && index === 0) ||
+      (direction === 'down' && index === quizData.questions.length - 1)
+    ) {
+      return;
+    }
+    
+    setQuizData(prev => {
+      const updatedQuestions = [...prev.questions];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      
+      [updatedQuestions[index], updatedQuestions[targetIndex]] = 
+      [updatedQuestions[targetIndex], updatedQuestions[index]];
+      
+      return {
+        ...prev,
+        questions: updatedQuestions.map((q, i) => ({ ...q, order: i }))
+      };
+    });
   };
 
   const saveQuiz = async () => {
@@ -318,8 +404,6 @@ const CreateQuiz = () => {
         toast.success('Quiz created successfully!');
       }
       
-      // Reset the store after successful save
-      resetQuizData();
       navigate('/dashboard');
     } catch (err: any) {
       console.error('Error saving quiz:', err);
@@ -367,7 +451,7 @@ const CreateQuiz = () => {
               type="text"
               id="title"
               value={quizData.title}
-              onChange={(e) => updateQuizField('title', e.target.value)}
+              onChange={(e) => setQuizData(prev => ({ ...prev, title: e.target.value }))}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-brand-blue sm:text-sm"
               placeholder="Enter quiz title"
             />
@@ -381,7 +465,7 @@ const CreateQuiz = () => {
               id="description"
               rows={3}
               value={quizData.description}
-              onChange={(e) => updateQuizField('description', e.target.value)}
+              onChange={(e) => setQuizData(prev => ({ ...prev, description: e.target.value }))}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-brand-blue sm:text-sm"
               placeholder="Describe what this quiz is about"
             />
@@ -393,7 +477,7 @@ const CreateQuiz = () => {
                 type="checkbox"
                 id="hasTimer"
                 checked={quizData.has_timer}
-                onChange={(e) => updateQuizField('has_timer', e.target.checked)}
+                onChange={(e) => setQuizData(prev => ({ ...prev, has_timer: e.target.checked }))}
                 className="h-4 w-4 rounded border-gray-300 text-brand-blue focus:ring-brand-blue"
               />
               <label htmlFor="hasTimer" className="ml-2 block text-sm font-medium text-gray-700">
@@ -412,7 +496,10 @@ const CreateQuiz = () => {
                   min={5}
                   max={300}
                   value={quizData.question_timer_seconds}
-                  onChange={(e) => updateQuizField('question_timer_seconds', Math.max(5, Math.min(300, parseInt(e.target.value) || 20)))}
+                  onChange={(e) => setQuizData(prev => ({ 
+                    ...prev, 
+                    question_timer_seconds: Math.max(5, Math.min(300, parseInt(e.target.value) || 20))
+                  }))}
                   className="mt-1 block w-32 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-brand-blue sm:text-sm"
                 />
                 <p className="mt-1 text-xs text-gray-500">
