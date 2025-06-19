@@ -1,5 +1,3 @@
-import { Configuration, OpenAIApi } from 'npm:openai@^4.28.0';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -8,6 +6,42 @@ const corsHeaders = {
 
 interface RequestBody {
   content: string;
+}
+
+interface MistralMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface MistralRequest {
+  model: string;
+  messages: MistralMessage[];
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+  stream?: boolean;
+}
+
+interface MistralChoice {
+  index: number;
+  message: {
+    role: string;
+    content: string;
+  };
+  finish_reason: string;
+}
+
+interface MistralResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: MistralChoice[];
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 }
 
 Deno.serve(async (req) => {
@@ -20,75 +54,134 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not set');
+    const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY');
+    if (!MISTRAL_API_KEY) {
+      throw new Error('MISTRAL_API_KEY is not set in environment variables');
     }
 
     // Parse request body
     const { content } = await req.json() as RequestBody;
-    if (!content) {
+    if (!content || !content.trim()) {
       throw new Error('No content provided');
     }
 
-    // Initialize OpenAI
-    const configuration = new Configuration({
-      apiKey: OPENAI_API_KEY,
-    });
-    const openai = new OpenAIApi(configuration);
+    // Construct the prompt for Mistral
+    const systemPrompt = `You are a helpful assistant that creates multiple choice questions from educational content. Always respond with valid JSON only, no additional text or formatting.`;
+    
+    const userPrompt = `Given the following content, create 5-10 multiple choice questions. For each question:
+1. Extract a key concept from the content
+2. Create a clear, specific question about that concept
+3. Provide four possible answers, with only one being correct
+4. Include a brief explanation for why the correct answer is right
+5. Make questions challenging but fair
 
-    // Construct the prompt
-    const prompt = `
-      Given the following content, create 5-10 multiple choice questions. For each question:
-      1. Extract a key concept
-      2. Create a clear question about that concept
-      3. Provide four possible answers, with only one being correct
-      4. Include a brief explanation for why the correct answer is right
-      
-      Format the output as a JSON array of objects with the following structure:
-      {
-        "question_text": "The question text",
-        "options": ["Option A", "Option B", "Option C", "Option D"],
-        "correct_answer": "The correct option text",
-        "explanation": "Brief explanation of why this is correct"
-      }
+Format the output as a JSON array of objects with this exact structure:
+[
+  {
+    "question_text": "The question text",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_answer": "The correct option text (must match exactly one of the options)",
+    "explanation": "Brief explanation of why this is correct"
+  }
+]
 
-      Content to process:
-      ${content}
-    `;
+Content to process:
+${content}`;
 
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+    // Prepare the request payload for Mistral API
+    const mistralRequest: MistralRequest = {
+      model: 'mistral-large-latest', // Using the most capable model
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that creates multiple choice questions. Always respond with valid JSON.',
+          content: systemPrompt
         },
         {
           role: 'user',
-          content: prompt,
-        },
+          content: userPrompt
+        }
       ],
       temperature: 0.7,
       max_tokens: 2000,
+      top_p: 1.0,
+      stream: false
+    };
+
+    console.log('Sending request to Mistral API...');
+
+    // Call Mistral API
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(mistralRequest),
     });
 
-    // Parse the response
-    const responseText = completion.choices[0].message.content;
-    if (!responseText) {
-      throw new Error('No response from OpenAI');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Mistral API error:', response.status, errorText);
+      throw new Error(`Mistral API error: ${response.status} - ${errorText}`);
     }
 
-    // Parse and validate the JSON response
-    const questions = JSON.parse(responseText);
-    if (!Array.isArray(questions)) {
-      throw new Error('Invalid response format from OpenAI');
+    const mistralResponse: MistralResponse = await response.json();
+    console.log('Received response from Mistral API');
+
+    // Extract the generated content
+    const generatedContent = mistralResponse.choices?.[0]?.message?.content;
+    if (!generatedContent) {
+      throw new Error('No content generated by Mistral API');
     }
+
+    console.log('Generated content:', generatedContent);
+
+    // Parse and validate the JSON response
+    let questions;
+    try {
+      // Clean the response in case there's any markdown formatting
+      const cleanedContent = generatedContent
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+      
+      questions = JSON.parse(cleanedContent);
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
+      console.error('Raw content:', generatedContent);
+      throw new Error('Invalid JSON format in Mistral API response');
+    }
+
+    if (!Array.isArray(questions)) {
+      throw new Error('Response is not an array of questions');
+    }
+
+    // Validate each question has the required fields
+    for (let i = 0; i < questions.length; i++) {
+      const question = questions[i];
+      if (!question.question_text || !Array.isArray(question.options) || 
+          question.options.length !== 4 || !question.correct_answer || 
+          !question.explanation) {
+        throw new Error(`Question ${i + 1} is missing required fields or has invalid format`);
+      }
+
+      // Ensure correct_answer matches one of the options
+      if (!question.options.includes(question.correct_answer)) {
+        throw new Error(`Question ${i + 1}: correct_answer "${question.correct_answer}" does not match any of the provided options`);
+      }
+    }
+
+    console.log(`Successfully generated ${questions.length} questions`);
 
     // Return the questions with CORS headers
     return new Response(
-      JSON.stringify({ questions }),
+      JSON.stringify({ 
+        questions,
+        metadata: {
+          model_used: mistralResponse.model,
+          tokens_used: mistralResponse.usage?.total_tokens || 0
+        }
+      }),
       {
         headers: {
           ...corsHeaders,
@@ -97,12 +190,13 @@ Deno.serve(async (req) => {
       },
     );
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in generate-quiz-questions function:', error);
     
     // Return error response with CORS headers
     return new Response(
       JSON.stringify({
         error: error.message || 'An error occurred while generating questions',
+        details: error.stack || 'No additional details available'
       }),
       {
         status: 500,
