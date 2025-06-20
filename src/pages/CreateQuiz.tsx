@@ -397,7 +397,7 @@ const CreateQuiz = () => {
             question_timer_seconds: quizData.question_timer_seconds,
             user_id: user.id,
             status: "ready",
-            player_limit: 20,
+            player_limit: 100,
           })
           .select()
           .single();
