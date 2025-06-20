@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 const Footer = () => {
   return (
-    <footer className="border-t bg-white py-16">
+    <footer className="border-t bg-white py-8">
       <div className="container mx-auto px-4">
         <div className="flex flex-col items-center justify-center text-center">
           {/* Logo and Brand with Floating Animation */}
@@ -17,7 +17,7 @@ const Footer = () => {
               repeat: Infinity,
               ease: "easeInOut"
             }}
-            className="mb-6"
+            className="mb-4"
           >
             <Link to="/" className="flex items-center space-x-3">
               <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
@@ -37,7 +37,7 @@ const Footer = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-lg text-gray-600 max-w-xs mb-12 leading-relaxed"
+            className="text-lg text-gray-600 max-w-xs mb-6 leading-relaxed"
           >
             Where Knowledge Ignites! AI-powered live quiz platform for educators and presenters.
           </motion.p>
@@ -48,7 +48,7 @@ const Footer = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="border-t pt-8"
+          className="border-t pt-4"
         >
           <p className="text-center text-sm text-gray-500">
             © {new Date().getFullYear()} Zekora! All rights reserved.
