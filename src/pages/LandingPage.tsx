@@ -19,7 +19,6 @@ const LandingPage = () => {
     <div className="flex flex-col">
       {/* Hero Section - Focused on Players */}
       <section className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 sm:py-20">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
         <div className="container mx-auto px-4">
           <div className="grid items-center gap-8 lg:grid-cols-2">
             {/* Left Side - Join Quiz */}
